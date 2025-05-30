@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bur51fsaaek32"
-path="res://.godot/imported/rigid_character_3d.svg-86bbbeda0080b2f122b6e8adcd1999d6.ctex"
+uid="uid://dyd0heol7wple"
+path="res://.godot/imported/rigid_character_2d.svg-405174c0135e3ffa40aaefa0d70b7e51.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/rigid_character/rigid_character/icons/rigid_character_3d.svg"
-dest_files=["res://.godot/imported/rigid_character_3d.svg-86bbbeda0080b2f122b6e8adcd1999d6.ctex"]
+source_file="res://addons/rigid_character/icons/rigid_character_2d.svg"
+dest_files=["res://.godot/imported/rigid_character_2d.svg-405174c0135e3ffa40aaefa0d70b7e51.ctex"]
 
 [params]
 

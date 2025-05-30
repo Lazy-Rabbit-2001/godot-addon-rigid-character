@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://cbtx3cdvxn13t"]
+
+[ext_resource type="Script" uid="uid://ba7ybryap4yem" path="res://addons/rigid_character/converter/dock/converter.gd" id="1_rq86g"]
+
+[node name="Convert" type="Button"]
+text = "Convert to C#"
+flat = true
+script = ExtResource("1_rq86g")

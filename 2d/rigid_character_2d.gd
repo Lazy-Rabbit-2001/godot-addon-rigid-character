@@ -1,4 +1,4 @@
-@icon("res://addons/rigid_character/rigid_character/icons/rigid_character_2d.svg")
+@icon("uid://dyd0heol7wple")
 class_name RigidCharacter2D
 extends CharacterBody2D
 
@@ -35,6 +35,11 @@ enum UpDirectionBase {
 }
 
 ## The mass of the body. And it affects the [member momentum] of the body.
+## [br][br]
+##
+## [b]Note:[/b] This is a property encapsulating the setter and getter of [method PhysicsServer2D.body_set_param] and [method PhysicsServer2D.body_get_param].
+## In C# version, due to some technical issues with C# getters, an incorrect value will be given via this property if you try to set the mass by calling [method PhysicsServer2D.body_set_param] on the body.
+## To avoid this, you should access the [code]Mass[/code] property instead.
 @export_range(0.0, 9999.9, 0.1, "or_greater", "hide_slider", "suffix:kg")
 var mass: float = 1.0:
 	set(value):
@@ -50,25 +55,19 @@ var mass: float = 1.0:
 ## Current velocity vector transformed by the [member motion_base]. Sometimes this can be regarded as "local velocity".
 ## [br][br]
 ## 
-## [b]Note:[/b] The motion will be the same as the [member CharacterBody2D.velocity] when the motion mode is [code]MOTION_MODE_FLOATING[/code].
+## [b]Note:[/b] The motion will be the same as the [member CharacterBody2D.velocity] transformed under the rule of [enum MotionBase][code].GLOBAL_ROTATION[/code] when the motion mode is [code]MOTION_MODE_FLOATING[/code].
 @export_custom(PROPERTY_HINT_NONE, "suffix:px/s") 
 var motion: Vector2:
 	set(value):
-		if motion_mode == MotionMode.MOTION_MODE_FLOATING:
-			velocity = value
-			return
-		match motion_base:
-			MotionBase.UP_DIRECTION:
-				velocity = value.rotated(up_direction_rotation)
-			MotionBase.GLOBAL_ROTATION:
-				velocity = value.rotated(global_rotation)
+		if motion_base == MotionBase.UP_DIRECTION and motion_mode == MotionMode.MOTION_MODE_GROUNDED:
+			velocity = value.rotated(up_direction_rotation)
+		else:
+			velocity = value.rotated(global_rotation)
 	get:
-		match motion_base:
-			MotionBase.UP_DIRECTION when motion_mode == MotionMode.MOTION_MODE_GROUNDED:
-				return velocity.rotated(-up_direction_rotation)
-			MotionBase.GLOBAL_ROTATION:
-				return velocity.rotated(-global_rotation)
-		return velocity
+		if motion_base == MotionBase.UP_DIRECTION and motion_mode == MotionMode.MOTION_MODE_GROUNDED:
+			return velocity.rotated(-up_direction_rotation)
+		else:
+			return velocity.rotated(-global_rotation)
 ## The transfrom base of the [member CharacterBody2D.up_direction]. See [enum UpDirectionBase] for more information.
 ## [br][br]
 ## [b]Note:[/b] The up direction is configurable only when the motion mode is [code]MOTION_MODE_GROUNDED[/code].
@@ -88,6 +87,11 @@ var motion: Vector2:
 			
 @export_group("Gravity")
 ## The scale of the gravity applied to the body.
+## [br][br]
+##
+## [b]Note:[/b] This is a property encapsulating the setter and getter of [method PhysicsServer2D.body_set_param] and [method PhysicsServer2D.body_get_param].
+## In C# version, due to some technical issues with C# getters, an incorrect value will be given via this property if you try to set the mass by calling [method PhysicsServer2D.body_set_param] on the body.
+## To avoid this, you should access the [code]GravityScale[/code] property instead.
 @export_range(-8.0, 8.0, 0.1, "or_greater", "or_less")
 var gravity_scale: float = 1.0:
 	set(value):
@@ -149,7 +153,7 @@ var _prev_on_floor: bool = false
 
 
 ## A virtual method that you can override to customize your own movement behavior.
-func _move(scale: float = 1.0) -> bool:
+func _move(scale: float) -> bool:
 	_prev_vel = velocity
 	_prev_on_floor = is_on_floor()
 
@@ -183,10 +187,8 @@ func _move(scale: float = 1.0) -> bool:
 ## [br][br]
 ## [b]Note:[/b] When [param target_velocity] is given, the acceleration will be the length of the given acceleration vector.
 func accelerate(acceleration: Vector2, target_velocity: Vector2 = Vector2.INF) -> void:
-	var delta := _body_delta
-	
 	if target_velocity.is_finite():
-		velocity = velocity.move_toward(target_velocity, acceleration.length() * delta)
+		velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
 	else:
 		velocity += acceleration * _body_delta
 ## Accelerates the body by adding [member motion] by the given acceleration vector.
@@ -194,12 +196,10 @@ func accelerate(acceleration: Vector2, target_velocity: Vector2 = Vector2.INF) -
 ## [br][br]
 ## [b]Note:[/b] When [param target_motion] is given, the acceleration will be the length of the given acceleration vector.
 func accelerate_motion(acceleration: Vector2, target_motion: Vector2 = Vector2.INF) -> void:
-	var delta := _body_delta
-
 	if target_motion.is_finite():
-		motion = motion.move_toward(target_motion, acceleration.length() * delta)
+		motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
 	else:
-		motion += target_motion * delta
+		motion += target_motion * _body_delta
 ## Accelerates the [member motion] by adding one of the components by the given acceleration scalar in the motion vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 func accelerate_motion_component(component: MotionComponent, acceleration: float, target: float = INF) -> void:
@@ -214,18 +214,26 @@ func accelerate_motion_component(component: MotionComponent, acceleration: float
 func apply_force(force: Vector2) -> void:
 	momentum += force * _body_delta
 ## Applies the given impulse to the body.
+## Equals to [code]momentum += impulse[/code], for better readability.
+## [br][br]
+##
 ## The impulse applied in this method is a central impulse, and it is [b]time-independent[/b], meaning that calling the method in each frame will apply a new impulse related to the frame rate.
-## So you should call this method only when you want to apply an immediate impulse to the body.
-func apply_impulse(impulse: Vector2, affect_momentum: bool = true) -> void:
-	if affect_momentum:
-		momentum += impulse
-	else:
-		velocity += impulse
+## You should call this method only when you want to apply an immediate impulse to the body.
+func apply_impulse(impulse: Vector2) -> void:
+	momentum += impulse
+## Applies the given vector to the body's velocity.
+## Equals to [code]velocity += vector[/code], for better readability.
+## [br][br]
+##
+## The velocity applied in this method is [b]time-independent[/b], meaning that calling the method in each frame will apply a new velocity related to the frame rate.
+## You should call this method only when you want to apply an immediate velocity to the body.
+func apply_velocity(vector: Vector2) -> void:
+	velocity += vector
 ## Makes the body bounce back.
 func bounce() -> void:
 	if _prev_normal.is_zero_approx() or not _prev_normal.is_finite():
 		return
-	velocity = (velocity if _prev_vel.is_zero_approx() else _prev_vel).reflect(_prev_normal)
+	velocity = (velocity if _prev_vel.is_zero_approx() else _prev_vel).bounce(_prev_normal)
 ## Returns the friction of the floor.
 ## If the character is not on the floor, it returns [code]0.0[/code].
 func get_floor_friction() -> float:
@@ -236,23 +244,29 @@ func get_floor_friction() -> float:
 	test_move(global_transform, -get_floor_normal() * floor_snap_length, kc)
 
 	if kc and kc.get_collider():
-		return PhysicsServer2D.body_get_param(kc.get_collider().get_rid(), PhysicsServer2D.BODY_PARAM_FRICTION)
+		return PhysicsServer2D.body_get_param(kc.get_collider_rid(), PhysicsServer2D.BODY_PARAM_FRICTION)
 
 	return 0.0
 ## Makes the body jump along the [member CharacterBody2D.up_direction].
 ## [br][br]
+##
 ## [b]Note:[/b] This method only works when the [member CharacterBody2D.motion_mode] is [constant MOTION_MODE_GROUNDED].
+## [br][br]
+## 
+## [b]Note:[/b] This method will reset the velocity along the [member CharacterBody2D.up_direction].
+## If you don't hope to do so, please consider using [method apply_impulse] or [method apply_velocity] instead.
 func jump(impulse: float, affect_momentum: bool = false) -> void:
-	if motion_mode != MotionMode.MOTION_MODE_GROUNDED:
+	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
 		printerr("The method 'jump()' can only be called when the motion mode is 'MOTION_MODE_GROUNDED'.")
 		return
 	
 	var imp := momentum.project(up_direction) if affect_momentum else velocity.project(up_direction)
-	
+	var result := imp.normalized() * impulse - imp
+
 	if affect_momentum:
-		momentum += imp.normalized() * impulse - imp
+		momentum += result
 	else:
-		velocity += imp.normalized() * impulse - imp
+		velocity += result
 ## Moves the body and handles the gravity and other physics related stuff.
 ## You can override [method _move] to customize your own movement behavior.
 func move(scale: float = 1.0) -> bool:
@@ -277,12 +291,16 @@ func sync_global_rotation() -> void:
 ## Turns the body back.
 ## [br][br]
 ##
-## [b]Note:[/b] This method only works when the [member CharacterBody2D.motion_mode] is [constant MOTION_MODE_GROUNDED] or the character is on the floor.
-## If you want to turn a body whose motion mode is [constant MOTION_MODE_FLOATING], please consider reversing [member CharacterBody2D.velocity] or [member motion] instead.
+## [b]Note:[/b] As this method relies on the floor normal and up direction, this method only works when the [member CharacterBody2D.motion_mode] is [constant MOTION_MODE_GROUNDED] or the character is on the floor.
+## If you want to turn a body whose motion mode is [constant MOTION_MODE_FLOATING], please consider reversing [member CharacterBody2D.velocity] or [member motion] instead, or calling [method bounce].
 func turn() -> void:
-	if is_on_floor():
-		velocity = velocity.reflect(get_floor_normal())
-	elif motion_mode == MotionMode.MOTION_MODE_GROUNDED:
-		velocity = velocity.reflect(up_direction)
-	else:
+	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
 		printerr("The method 'turn_back()' can only be called when the motion mode is 'MOTION_MODE_GROUNDED' or the character is on the floor.")
+		return
+
+	var v := velocity if _prev_vel.is_zero_approx() else _prev_vel
+
+	if is_on_floor():
+		velocity = v.reflect(get_floor_normal())
+	else:
+		velocity = v.reflect(up_direction)
