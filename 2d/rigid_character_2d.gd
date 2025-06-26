@@ -74,17 +74,7 @@ var motion: Vector2:
 @export var up_direction_base: UpDirectionBase = UpDirectionBase.GLOBAL_ROTATION:
 	set(value):
 		up_direction_base = value
-		
-		if motion_mode == MotionMode.MOTION_MODE_FLOATING:
-			printerr("The property 'up_direction_base' can only be set when the motion mode is 'MOTION_MODE_GROUNDED'.")
-			return
-
-		match up_direction_base:
-			UpDirectionBase.GLOBAL_ROTATION:
-				up_direction = Vector2.UP.rotated(global_rotation)
-			UpDirectionBase.REVERSED_GRAVITY_DIRECTION:
-				up_direction = -get_gravity().normalized()
-			
+		update_up_direction()
 @export_group("Gravity")
 ## The scale of the gravity applied to the body.
 ## [br][br]
@@ -182,6 +172,7 @@ func _move(scale: float) -> bool:
 
 	return ret
 
+
 ## Accelerates the body by adding [member CharacterBody2D.velocity] by the given acceleration vector.
 ## If the [param target_velocity] is given, the body will move towards the target velocity.
 ## [br][br]
@@ -191,6 +182,7 @@ func accelerate(acceleration: Vector2, target_velocity: Vector2 = Vector2.INF) -
 		velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
 	else:
 		velocity += acceleration * _body_delta
+
 ## Accelerates the body by adding [member motion] by the given acceleration vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 ## [br][br]
@@ -200,6 +192,7 @@ func accelerate_motion(acceleration: Vector2, target_motion: Vector2 = Vector2.I
 		motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
 	else:
 		motion += target_motion * _body_delta
+
 ## Accelerates the [member motion] by adding one of the components by the given acceleration scalar in the motion vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 func accelerate_motion_component(component: MotionComponent, acceleration: float, target: float = INF) -> void:
@@ -209,10 +202,12 @@ func accelerate_motion_component(component: MotionComponent, acceleration: float
 		motion[component] = move_toward(motion[component], target, a)
 	else:
 		motion[component] += a
+
 ## Applies the given force to the body.
 ## The force applied in this method is a central force, and it is [b]time-dependent[/b], meaning that you can call this method in each frame.
 func apply_force(force: Vector2) -> void:
 	momentum += force * _body_delta
+
 ## Applies the given impulse to the body.
 ## Equals to [code]momentum += impulse[/code], for better readability.
 ## [br][br]
@@ -221,6 +216,7 @@ func apply_force(force: Vector2) -> void:
 ## You should call this method only when you want to apply an immediate impulse to the body.
 func apply_impulse(impulse: Vector2) -> void:
 	momentum += impulse
+
 ## Applies the given vector to the body's velocity.
 ## Equals to [code]velocity += vector[/code], for better readability.
 ## [br][br]
@@ -229,6 +225,7 @@ func apply_impulse(impulse: Vector2) -> void:
 ## You should call this method only when you want to apply an immediate velocity to the body.
 func apply_velocity(vector: Vector2) -> void:
 	velocity += vector
+
 ## Makes the body bounce back.
 func bounce() -> void:
 	if _prev_normal.is_zero_approx() or not _prev_normal.is_finite():
@@ -247,6 +244,7 @@ func get_floor_friction() -> float:
 		return PhysicsServer2D.body_get_param(kc.get_collider_rid(), PhysicsServer2D.BODY_PARAM_FRICTION)
 
 	return 0.0
+
 ## Makes the body jump along the [member CharacterBody2D.up_direction].
 ## [br][br]
 ##
@@ -267,10 +265,12 @@ func jump(impulse: float, affect_momentum: bool = false) -> void:
 		momentum += result
 	else:
 		velocity += result
+
 ## Moves the body and handles the gravity and other physics related stuff.
 ## You can override [method _move] to customize your own movement behavior.
 func move(scale: float = 1.0) -> bool:
 	return _move(scale)
+
 ## Synchronizes the global rotation of the body and matches it with the gravity direction.
 func sync_global_rotation() -> void:
 	if not rotation_sync_enabled:
@@ -288,6 +288,7 @@ func sync_global_rotation() -> void:
 		global_rotation = lerp_angle(global_rotation, gdr, rotation_sync_angle_speed * _body_delta)
 	
 	up_direction_base = up_direction_base # Trigger the setter to update the up direction.
+
 ## Turns the body back.
 ## [br][br]
 ##
@@ -304,3 +305,17 @@ func turn() -> void:
 		velocity = v.reflect(get_floor_normal())
 	else:
 		velocity = v.reflect(up_direction)
+
+
+# Updates the up direction based on the [member up_direction_base].
+# Used internally by the setter of [member up_direction_base].
+func _update_up_direction() -> void:
+	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
+		printerr("The property 'up_direction_base' can only be set when the motion mode is 'MOTION_MODE_GROUNDED'.")
+		return
+
+	match up_direction_base:
+		UpDirectionBase.GLOBAL_ROTATION:
+			up_direction = Vector2.UP.rotated(global_rotation)
+		UpDirectionBase.REVERSED_GRAVITY_DIRECTION:
+			up_direction = -get_gravity().normalized()

@@ -39,16 +39,8 @@ public partial class RigidCharacter2D : CharacterBody2D
     [Export(PropertyHint.None, "suffix:px/s")]
     public Vector2 Motion
     {
-        get
-        {
-            if (MotionBase == MotionBaseEnum.UpDirection && MotionMode == MotionModeEnum.Grounded) return Velocity.Rotated(-UpDirectionRotation);
-            else return Velocity.Rotated(-GlobalRotation);
-        }
-        set
-        {
-            if (MotionBase == MotionBaseEnum.UpDirection && MotionMode == MotionModeEnum.Grounded) Velocity = value.Rotated(UpDirectionRotation);
-            else Velocity = value.Rotated(GlobalRotation);
-        }
+        get => MotionBase == MotionBaseEnum.UpDirection && MotionMode == MotionModeEnum.Grounded ? Velocity.Rotated(-UpDirectionRotation) : Velocity.Rotated(-GlobalRotation);
+        set => Velocity = MotionBase == MotionBaseEnum.UpDirection && MotionMode == MotionModeEnum.Grounded ? value.Rotated(UpDirectionRotation) : value.Rotated(GlobalRotation);
     }
     [Export]
     public UpDirectionBaseEnum UpDirectionBase

@@ -1,1 +1,2 @@
 Convert to:转化为
+The C# script requires the current scene be reloaded to take effect.:需重新加载当前场景以使C#脚本生效。

@@ -13,12 +13,12 @@ enum ScriptLang {
 
 const _Converter := preload("uid://cbtx3cdvxn13t")
 
-const _ConverterType := preload("uid://ba7ybryap4yem")
-
-var _converter: _ConverterType = null
+var _converter: HBoxContainer = null
 
 var _edited_object: Node = null
 var _convert_to_script: Script = null
+
+var _script_needs_converted: bool = false
 
 
 func _enter_tree() -> void:
@@ -26,9 +26,11 @@ func _enter_tree() -> void:
 		return
 	
 	_converter = _Converter.instantiate()
-	_converter.pressed.connect(_on_convert_button_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _converter)
+	_converter.button_convert.pressed.connect(_on_convert_button_pressed)
 	_converter.hide()
+	
+	scene_changed.connect(_on_scene_tree_reloaded)
 
 func _exit_tree() -> void:
 	if not _converter:
@@ -41,6 +43,8 @@ func _exit_tree() -> void:
 	
 	_edited_object = null
 	_convert_to_script = null
+	
+	scene_changed.disconnect(_on_scene_tree_reloaded)
 
 
 func _handles(_object: Object) -> bool:
@@ -60,6 +64,11 @@ func _edit(object: Object) -> void:
 		_converter.hide()
 		return
 	
+	const VALID_CLASSES := [&"RigidBody2D", &"RigidBody3D"]
+	
+	if script.get_global_name() in VALID_CLASSES:
+		return
+	
 	var gd := script is GDScript
 	var cs := script.get_class() == &"CSharpScript"
 	
@@ -74,6 +83,8 @@ func _edit(object: Object) -> void:
 			_converter.mode = ScriptLang.GDSCRIPT
 		
 		_converter.show()
+		_converter.show_warning(_script_needs_converted and script.get_class() == &"CSharpScript" and _script_needs_converted)
+		
 		return
 	
 	_edited_object = null
@@ -104,8 +115,19 @@ func _get_script_file(source: Script, lang: ScriptLang) -> Script:
 	return result
 
 
+func _on_scene_tree_reloaded(node: Node) -> void:
+	if node == EditorInterface.get_edited_scene_root():
+		_script_needs_converted = false
+		_converter.show_warning(false)
+
 func _on_convert_button_pressed() -> void:
 	if _convert_to_script and _edited_object:
+		if not _script_needs_converted and _convert_to_script.get_class() == &"CSharpScript":
+			_script_needs_converted = true
+			_converter.show_warning(true)
+		
 		_edited_object.set_script(_convert_to_script)
+		
 		EditorInterface.edit_node(_edited_object)
-		EditorInterface.edit_node(_edited_object)
+		
+		_edited_object.notify_property_list_changed()
