@@ -75,6 +75,7 @@ var motion: Vector2:
 	set(value):
 		up_direction_base = value
 		update_up_direction()
+
 @export_group("Gravity")
 ## The scale of the gravity applied to the body.
 ## [br][br]
@@ -143,7 +144,7 @@ var _prev_on_floor: bool = false
 
 
 ## A virtual method that you can override to customize your own movement behavior.
-func _move(scale: float) -> bool:
+func _move(speed_scale: float) -> bool:
 	_prev_vel = velocity
 	_prev_on_floor = is_on_floor()
 
@@ -166,9 +167,9 @@ func _move(scale: float) -> bool:
 	
 	sync_global_rotation()
 
-	velocity *= scale
+	velocity *= speed_scale
 	var ret := move_and_slide()
-	velocity /= scale
+	velocity /= speed_scale
 
 	return ret
 
@@ -268,8 +269,8 @@ func jump(impulse: float, affect_momentum: bool = false) -> void:
 
 ## Moves the body and handles the gravity and other physics related stuff.
 ## You can override [method _move] to customize your own movement behavior.
-func move(scale: float = 1.0) -> bool:
-	return _move(scale)
+func move(speed_scale: float = 1.0) -> bool:
+	return _move(speed_scale)
 
 ## Synchronizes the global rotation of the body and matches it with the gravity direction.
 func sync_global_rotation() -> void:
@@ -307,9 +308,9 @@ func turn() -> void:
 		velocity = v.reflect(up_direction)
 
 
-# Updates the up direction based on the [member up_direction_base].
-# Used internally by the setter of [member up_direction_base].
-func _update_up_direction() -> void:
+## Updates the up direction based on the [member up_direction_base].
+## Used internally by the setter of [member up_direction_base].
+func update_up_direction() -> void:
 	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
 		printerr("The property 'up_direction_base' can only be set when the motion mode is 'MOTION_MODE_GROUNDED'.")
 		return

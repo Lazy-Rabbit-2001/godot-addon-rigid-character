@@ -88,28 +88,7 @@ public partial class RigidCharacter2D : CharacterBody2D
         get => _prevVelocity;
     }
 
-    private void UpdateUpDirection()
-    {
-        if (MotionMode == MotionModeEnum.Floating)
-        {
-            PrintErr("The property 'UpDirectionBase' can only be set when the motion mode is 'Grounded'.");
-            return;
-        }
-
-        switch (_upDirectionBase)
-        {
-            case UpDirectionBaseEnum.GlobalRotation:
-                UpDirection = Vector2.Up.Rotated(GlobalRotation);
-                break;
-            case UpDirectionBaseEnum.ReversedGravityDirection:
-                UpDirection = -GetGravity().Normalized();
-                break;
-            default:
-                break;
-        }
-    }
-
-    protected virtual bool _Move(float scale)
+    protected virtual bool _Move(float speedScale)
     {
         _prevVelocity = Velocity;
         _prevWasOnFloor = IsOnFloor();
@@ -134,9 +113,9 @@ public partial class RigidCharacter2D : CharacterBody2D
 
         SyncGlobalRotation();
 
-        Velocity *= scale;
+        Velocity *= speedScale;
         var ret = MoveAndSlide();
-        Velocity /= scale;
+        Velocity /= speedScale;
 
         return ret;
     }
@@ -193,7 +172,7 @@ public partial class RigidCharacter2D : CharacterBody2D
         else Velocity += result;
     }
 
-    public bool Move(float scale = 1.0f) => _Move(scale);
+    public bool Move(float speedScale = 1.0f) => _Move(speedScale);
     public void SyncGlobalRotation()
     {
         if (!RotationSyncEnabled) return;
@@ -220,6 +199,27 @@ public partial class RigidCharacter2D : CharacterBody2D
         else Velocity = v.Reflect(UpDirection);
 
     }
+    public void UpdateUpDirection()
+    {
+        if (MotionMode == MotionModeEnum.Floating)
+        {
+            PrintErr("The property 'UpDirectionBase' can only be set when the motion mode is 'Grounded'.");
+            return;
+        }
+
+        switch (_upDirectionBase)
+        {
+            case UpDirectionBaseEnum.GlobalRotation:
+                UpDirection = Vector2.Up.Rotated(GlobalRotation);
+                break;
+            case UpDirectionBaseEnum.ReversedGravityDirection:
+                UpDirection = -GetGravity().Normalized();
+                break;
+            default:
+                break;
+        }
+    }
+
 
     public RigidCharacter2D()
     {
