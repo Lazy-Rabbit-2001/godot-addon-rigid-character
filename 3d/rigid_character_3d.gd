@@ -1,51 +1,52 @@
-@icon("uid://dyd0heol7wple")
-class_name RigidCharacter2D
-extends CharacterBody2D
+@icon("uid://bur51fsaaek32")
+class_name RigidCharacter3D
+extends CharacterBody3D
 
-## A 2D character body with some rigid body physics and quality-of-life improvements for platform development.
+## A 3D character body with some rigid body physics and quality-of-life improvements for platform development.
 ## 
-## [RigidCharacter2D] enhances the usability of [CharacterBody2D]: You can handle the [member gravity_scale] of the body to control the strength of the gravity, meaning you don't need to write your own gravity code.
+## [RigidCharacter3D] enhances the usability of [CharacterBody3D]: You can handle the [member gravity_scale] of the body to control the strength of the gravity, meaning you don't need to write your own gravity code.
 ## [br][br]
 ## 
-## Introducing gravity direction meaning that you need to handle the transform of the [member CharacterBody2D.velocity], which is annoying when you just want to think things more easily. Therefore, [member motion] is introduced to solve this problem. It is the [member CharacterBody2D.velocity] transformed by a certain rule of based on the [member motion_base] you give. So you can think velocity as if the body is in the regular cooridnate system that does not rotate, and the [member motion] will help you tranform it to the desired coordinate system.
+## Introducing gravity direction meaning that you need to handle the transform of the [member CharacterBody3D.velocity], which is annoying when you just want to think things more easily. Therefore, [member motion] is introduced to solve this problem. It is the [member CharacterBody3D.velocity] transformed by a certain rule of based on the [member motion_base] you give. So you can think velocity as if the body is in the regular cooridnate system that does not rotate, and the [member motion] will help you tranform it to the desired coordinate system.
 ## [br][br]
 ## 
 ## For developers preferring to use momentum, the [member mass] and [member momentum] are your first choice. 
 ## The method [method force] and [method impulse] are also welcome for those who want to simulate physical effects on the character.
 ## [br][br]
 ##
-## If you want to move a [RigidCharacter2D], you should call [method move] instead of [method CharacterBody2D.move_and_slide] to ensure the gravity and some other process are handled correctly.
+## If you want to move a [RigidCharacter3D], you should call [method move] instead of [method CharacterBody3D.move_and_slide] to ensure the gravity and some other process are handled correctly.
 ## The method also provides a param that allows you to scale the movement speed, which is useful when the character is in a space where the time goes faster or slower.
 ## 
 
 enum MotionBase {
-	UP_DIRECTION, ## The [member motion] refers to the velocity orthogonal to the [member CharacterBody2D.up_direction] of the body.
+	UP_DIRECTION, ## The [member motion] refers to the velocity orthogonal to the [member CharacterBody3D.up_direction] of the body.
 	GLOBAL_ROTATION ## The [member motion] refers to the velocity rotated by the global rotation of the body.
 }
 
 enum MotionComponent {
 	X, ## Refers to the X component of the [member motion].
 	Y, ## Refers to the Y component of the [member motion].
+	Z, ## Refers to the Z component of the [member motion].
 }
 
 enum UpDirectionBase {
-	DEFAULT, ## The [member CharacterBody2D.up_direction] does not change.
-	GLOBAL_ROTATION, ## The [member CharacterBody2D.up_direction] is rotated by the global rotation of the body.
-	REVERSED_GRAVITY_DIRECTION ## The [member CharacterBody2D.up_direction] is the opposite direction of the gravity.
+	DEFAULT, ## The [member CharacterBody3D.up_direction] does not change.
+	GLOBAL_ROTATION, ## The [member CharacterBody3D.up_direction] is rotated by the global rotation of the body.
+	REVERSED_GRAVITY_DIRECTION ## The [member CharacterBody3D.up_direction] is the opposite direction of the gravity.
 }
 
 ## The mass of the body. And it affects the [member momentum] of the body.
 ## [br][br]
 ##
-## [b]Note:[/b] This is a property encapsulating the setter and getter of [method PhysicsServer2D.body_set_param] and [method PhysicsServer2D.body_get_param].
-## In C# version, due to some technical issues with C# getters, an incorrect value will be given via this property if you try to set the mass by calling [method PhysicsServer2D.body_set_param] on the body.
+## [b]Note:[/b] This is a property encapsulating the setter and getter of [method PhysicsServer3D.body_set_param] and [method PhysicsServer3D.body_get_param].
+## In C# version, due to some technical issues with C# getters, an incorrect value will be given via this property if you try to set the mass by calling [method PhysicsServer3D.body_set_param] on the body.
 ## To avoid this, you should access the [code]Mass[/code] property instead.
 @export_range(0.0, 9999.9, 0.1, "or_greater", "hide_slider", "suffix:kg")
 var mass: float = 1.0:
 	set(value):
-		PhysicsServer2D.body_set_param(get_rid(), PhysicsServer2D.BODY_PARAM_MASS, value)
+		PhysicsServer3D.body_set_param(get_rid(), PhysicsServer3D.BODY_PARAM_MASS, value)
 	get:
-		return float(PhysicsServer2D.body_get_param(get_rid(), PhysicsServer2D.BODY_PARAM_MASS))
+		return float(PhysicsServer3D.body_get_param(get_rid(), PhysicsServer3D.BODY_PARAM_MASS))
 ## The transform base of the [member motion]. See [enum MotionBase] for more information.
 @export var motion_base: MotionBase = MotionBase.UP_DIRECTION:
 	set(value):
@@ -55,20 +56,20 @@ var mass: float = 1.0:
 ## Current velocity vector transformed by the [member motion_base]. Sometimes this can be regarded as "local velocity".
 ## [br][br]
 ## 
-## [b]Note:[/b] The motion will be the same as the [member CharacterBody2D.velocity] transformed under the rule of [enum MotionBase][code].GLOBAL_ROTATION[/code] when the motion mode is [code]MOTION_MODE_FLOATING[/code].
+## [b]Note:[/b] The motion will be the same as the [member CharacterBody3D.velocity] transformed under the rule of [enum MotionBase][code].GLOBAL_ROTATION[/code] when the motion mode is [code]MOTION_MODE_FLOATING[/code].
 @export_custom(PROPERTY_HINT_NONE, "suffix:px/s") 
-var motion: Vector2:
+var motion: Vector3:
 	set(value):
 		if motion_base == MotionBase.UP_DIRECTION and motion_mode == MotionMode.MOTION_MODE_GROUNDED:
-			velocity = value.rotated(up_direction_rotation)
+			velocity = up_direction_rotation * value
 		else:
-			velocity = value.rotated(global_rotation)
+			velocity = global_basis.get_rotation_quaternion() * value
 	get:
 		if motion_base == MotionBase.UP_DIRECTION and motion_mode == MotionMode.MOTION_MODE_GROUNDED:
-			return velocity.rotated(-up_direction_rotation)
+			return up_direction_rotation.inverse() * velocity
 		else:
-			return velocity.rotated(-global_rotation)
-## The transfrom base of the [member CharacterBody2D.up_direction]. See [enum UpDirectionBase] for more information.
+			return global_basis.get_rotation_quaternion().inverse() * velocity
+## The transfrom base of the [member CharacterBody3D.up_direction]. See [enum UpDirectionBase] for more information.
 ## [br][br]
 ## [b]Note:[/b] The up direction is configurable only when the motion mode is [code]MOTION_MODE_GROUNDED[/code].
 @export var up_direction_base: UpDirectionBase = UpDirectionBase.GLOBAL_ROTATION:
@@ -80,15 +81,15 @@ var motion: Vector2:
 ## The scale of the gravity applied to the body.
 ## [br][br]
 ##
-## [b]Note:[/b] This is a property encapsulating the setter and getter of [method PhysicsServer2D.body_set_param] and [method PhysicsServer2D.body_get_param].
-## In C# version, due to some technical issues with C# getters, an incorrect value will be given via this property if you try to set the mass by calling [method PhysicsServer2D.body_set_param] on the body.
+## [b]Note:[/b] This is a property encapsulating the setter and getter of [method PhysicsServer3D.body_set_param] and [method PhysicsServer3D.body_get_param].
+## In C# version, due to some technical issues with C# getters, an incorrect value will be given via this property if you try to set the mass by calling [method PhysicsServer3D.body_set_param] on the body.
 ## To avoid this, you should access the [code]GravityScale[/code] property instead.
 @export_range(-8.0, 8.0, 0.1, "or_greater", "or_less")
 var gravity_scale: float = 1.0:
 	set(value):
-		PhysicsServer2D.body_set_param(get_rid(), PhysicsServer2D.BODY_PARAM_GRAVITY_SCALE, value)
+		PhysicsServer3D.body_set_param(get_rid(), PhysicsServer3D.BODY_PARAM_GRAVITY_SCALE, value)
 	get:
-		return float(PhysicsServer2D.body_get_param(get_rid(), PhysicsServer2D.BODY_PARAM_GRAVITY_SCALE))
+		return float(PhysicsServer3D.body_get_param(get_rid(), PhysicsServer3D.BODY_PARAM_GRAVITY_SCALE))
 ## The maximum falling speed of the body.
 ## [br][br]
 ## 
@@ -103,30 +104,35 @@ var max_falling_speed: float = 1500.0
 @export_range(0.0, 360.0, 0.1, "or_greater", "radians_as_degrees", "suffix:°/s")
 var rotation_sync_angle_speed: float = TAU
 
-## The product of [member CharacterBody2D.velocity] and [member mass]. This is used to describe the inertia of the body.
-var momentum: Vector2:
+## The product of [member CharacterBody3D.velocity] and [member mass]. This is used to describe the inertia of the body.
+var momentum: Vector3:
 	set(value):
 		velocity = value / mass
 	get:
 		return velocity * mass
 
-## The rotation of [member CharacterBody2D.up_direction]. This is mainly used to transform the [member motion].
+## The rotation of [member CharacterBody3D.up_direction]. This is mainly used to transform the [member motion].
 ## [br][br]
 ##
 ## [b]Note:[/b] This is read-only property, and try to assign any value to it will result in an error.
 ## [br][br]
 ## 
 ## [b]Note:[/b] The up direction only works when the motion mode is [code]MOTION_MODE_GROUNDED[/code].
-var up_direction_rotation: float:
+var up_direction_rotation: Quaternion:
 	set(_value):
 		printerr("The property 'up_direction_rotation' is read-only.")
 	get:
-		return Vector2.UP.angle_to(up_direction)
+		# To avoid the error "!is_inside_tree() is true" thrown in tool mode, which is led by the global basis not initialized in 3D gaming environment,
+		# we need to use basis instead of global_basis here during the initialization in the editor.
+		var tmp_basis := basis if Engine.is_editor_hint() else global_basis
+		# Code arranged from https://ghostyii.com/ringworld/ by Ghostyii.
+		# Inspired and shared by https://forum.godotengine.org/t/3d-moving-around-sphere/63674/4 by militaryg.
+		return (Quaternion(tmp_basis.y.normalized(), up_direction) * tmp_basis.get_rotation_quaternion()).normalized()
 ## The velocity vector of the body at the last call of [method move]
 ## [br][br]
 ##
 ## [b]Note:[/b] This is read-only property, and try to assign any value to it will result in an error.
-var previous_velocity: Vector2:
+var previous_velocity: Vector3:
 	set(_value):
 		printerr("The property 'previous_velocity' is read-only.")
 	get:
@@ -138,8 +144,8 @@ var _body_delta: float:
 	get:
 		return get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
 
-var _prev_vel: Vector2 = Vector2.ZERO
-var _prev_normal: Vector2 = Vector2.ZERO
+var _prev_vel: Vector3 = Vector3.ZERO
+var _prev_normal: Vector3 = Vector3.ZERO
 var _prev_on_floor: bool = false
 
 
@@ -174,11 +180,11 @@ func _move(speed_scale: float) -> bool:
 	return ret
 
 
-## Accelerates the body by adding [member CharacterBody2D.velocity] by the given acceleration vector.
+## Accelerates the body by adding [member CharacterBody3D.velocity] by the given acceleration vector.
 ## If the [param target_velocity] is given, the body will move towards the target velocity.
 ## [br][br]
 ## [b]Note:[/b] When [param target_velocity] is given, the acceleration will be the length of the given acceleration vector.
-func accelerate(acceleration: Vector2, target_velocity: Vector2 = Vector2.INF) -> void:
+func accelerate(acceleration: Vector3, target_velocity: Vector3 = Vector3.INF) -> void:
 	if target_velocity.is_finite():
 		velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
 	else:
@@ -188,7 +194,7 @@ func accelerate(acceleration: Vector2, target_velocity: Vector2 = Vector2.INF) -
 ## If the [param target_motion] is given, the body will move towards the target motion.
 ## [br][br]
 ## [b]Note:[/b] When [param target_motion] is given, the acceleration will be the length of the given acceleration vector.
-func accelerate_motion(acceleration: Vector2, target_motion: Vector2 = Vector2.INF) -> void:
+func accelerate_motion(acceleration: Vector3, target_motion: Vector3 = Vector3.INF) -> void:
 	if target_motion.is_finite():
 		motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
 	else:
@@ -206,7 +212,7 @@ func accelerate_motion_component(component: MotionComponent, acceleration: float
 
 ## Applies the given force to the body.
 ## The force applied in this method is a central force, and it is [b]time-dependent[/b], meaning that you can call this method in each frame.
-func apply_force(force: Vector2) -> void:
+func apply_force(force: Vector3) -> void:
 	momentum += force * _body_delta
 
 ## Applies the given impulse to the body.
@@ -215,7 +221,7 @@ func apply_force(force: Vector2) -> void:
 ##
 ## The impulse applied in this method is a central impulse, and it is [b]time-independent[/b], meaning that calling the method in each frame will apply a new impulse related to the frame rate.
 ## You should call this method only when you want to apply an immediate impulse to the body.
-func apply_impulse(impulse: Vector2) -> void:
+func apply_impulse(impulse: Vector3) -> void:
 	momentum += impulse
 
 ## Applies the given vector to the body's velocity.
@@ -224,7 +230,7 @@ func apply_impulse(impulse: Vector2) -> void:
 ##
 ## The velocity applied in this method is [b]time-independent[/b], meaning that calling the method in each frame will apply a new velocity related to the frame rate.
 ## You should call this method only when you want to apply an immediate velocity to the body.
-func apply_velocity(vector: Vector2) -> void:
+func apply_velocity(vector: Vector3) -> void:
 	velocity += vector
 
 ## Makes the body bounce back.
@@ -238,21 +244,21 @@ func get_floor_friction() -> float:
 	if not is_on_floor():
 		return 0.0
 	
-	var kc := KinematicCollision2D.new()
+	var kc := KinematicCollision3D.new()
 	test_move(global_transform, -get_floor_normal() * floor_snap_length, kc)
 
 	if kc and kc.get_collider():
-		return PhysicsServer2D.body_get_param(kc.get_collider_rid(), PhysicsServer2D.BODY_PARAM_FRICTION)
+		return PhysicsServer3D.body_get_param(kc.get_collider_rid(), PhysicsServer3D.BODY_PARAM_FRICTION)
 
 	return 0.0
 
-## Makes the body jump along the [member CharacterBody2D.up_direction].
+## Makes the body jump along the [member CharacterBody3D.up_direction].
 ## [br][br]
 ##
-## [b]Note:[/b] This method only works when the [member CharacterBody2D.motion_mode] is [constant MOTION_MODE_GROUNDED].
+## [b]Note:[/b] This method only works when the [member CharacterBody3D.motion_mode] is [constant MOTION_MODE_GROUNDED].
 ## [br][br]
 ## 
-## [b]Note:[/b] This method will reset the velocity along the [member CharacterBody2D.up_direction].
+## [b]Note:[/b] This method will reset the velocity along the [member CharacterBody3D.up_direction].
 ## If you don't hope to do so, please consider using [method apply_impulse] or [method apply_velocity] instead.
 func jump(impulse: float, affect_momentum: bool = false) -> void:
 	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
@@ -279,25 +285,26 @@ func sync_global_rotation() -> void:
 	if get_gravity().is_zero_approx():
 		return
 	
-	var gdr := Vector2(PhysicsServer2D.area_get_param(get_viewport().find_world_2d().space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR)).angle_to(get_gravity())
+	var gdrq := Quaternion(PhysicsServer3D.area_get_param(get_viewport().find_world_3d().space, PhysicsServer3D.AREA_PARAM_GRAVITY_VECTOR), get_gravity()).normalized()
+	var grq := global_basis.get_rotation_quaternion().normalized()
 	
-	if global_rotation != gdr:
+	if grq != gdrq:
 		if is_on_floor() or _prev_on_floor:
-			global_rotation = gdr
+			global_rotation = gdrq.get_euler(rotation_order)
 		else:
-			var is_rotation_equal_approx := is_equal_approx(global_rotation, gdr)
+			var is_rotation_equal_approx := grq.is_equal_approx(gdrq)
 			if is_rotation_equal_approx:
-				global_rotation = gdr
+				global_rotation = gdrq.get_euler(rotation_order)
 			else:
-				global_rotation = lerp_angle(global_rotation, gdr, rotation_sync_angle_speed * _body_delta)
+				global_rotation = grq.slerp(gdrq, rotation_sync_angle_speed * _body_delta).get_euler(rotation_order)
 		
 		update_up_direction()
 
 ## Turns the body back.
 ## [br][br]
 ##
-## [b]Note:[/b] As this method relies on the floor normal and up direction, this method only works when the [member CharacterBody2D.motion_mode] is [constant MOTION_MODE_GROUNDED] or the character is on the floor.
-## If you want to turn a body whose motion mode is [constant MOTION_MODE_FLOATING], please consider reversing [member CharacterBody2D.velocity] or [member motion] instead, or calling [method bounce].
+## [b]Note:[/b] As this method relies on the floor normal and up direction, this method only works when the [member CharacterBody3D.motion_mode] is [constant MOTION_MODE_GROUNDED] or the character is on the floor.
+## If you want to turn a body whose motion mode is [constant MOTION_MODE_FLOATING], please consider reversing [member CharacterBody3D.velocity] or [member motion] instead, or calling [method bounce].
 func turn() -> void:
 	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
 		printerr("The method 'turn_back()' can only be called when the motion mode is 'MOTION_MODE_GROUNDED' or the character is on the floor.")
@@ -320,6 +327,7 @@ func update_up_direction() -> void:
 
 	match up_direction_base:
 		UpDirectionBase.GLOBAL_ROTATION:
-			up_direction = Vector2.UP.rotated(global_rotation)
+			var grq := global_basis.get_rotation_quaternion()
+			up_direction = grq * Vector3.UP
 		UpDirectionBase.REVERSED_GRAVITY_DIRECTION:
 			up_direction = -get_gravity().normalized()
