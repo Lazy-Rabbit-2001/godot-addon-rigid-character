@@ -75,12 +75,15 @@ func _edit(object: Object) -> void:
 	if gd or cs:
 		_edited_object = object
 		
-		if gd and _get_script_file(script, ScriptLang.CSHARP):
-			_convert_to_script = _get_script_file(script, ScriptLang.CSHARP)
+		var csfile := _get_script_file(script, ScriptLang.CSHARP)
+		if gd and csfile:
+			_convert_to_script = csfile
 			_converter.mode = ScriptLang.CSHARP
-		elif cs and _get_script_file(script, ScriptLang.GDSCRIPT):
-			_convert_to_script = _get_script_file(script, ScriptLang.GDSCRIPT)
-			_converter.mode = ScriptLang.GDSCRIPT
+		else:
+			var gdfile := _get_script_file(script, ScriptLang.CSHARP)
+			if cs and gdfile:
+				_convert_to_script = gdfile
+				_converter.mode = ScriptLang.GDSCRIPT
 		
 		_converter.show()
 		_converter.show_warning(_script_needs_converted and script.get_class() == &"CSharpScript" and _script_needs_converted)

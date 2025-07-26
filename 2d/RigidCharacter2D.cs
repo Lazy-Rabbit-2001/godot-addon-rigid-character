@@ -7,14 +7,14 @@ namespace GodotRigidCharacter;
 [Icon("uid://dyd0heol7wple")]
 public partial class RigidCharacter2D : CharacterBody2D
 {
-    public enum MotionBaseEnum { UpDirection, GlobalRotation };
     public enum MotionComponentEnum { X, Y };
-    public enum UpDirectionBaseEnum { Default, GlobalRotation, ReversedGravityDirection };
+    public enum UpDirectionBaseEnum { Default, ReversedGravityDirection };
 
     private float _mass = 1.0f;
     private float _gravityScale = 1.0f;
-    private UpDirectionBaseEnum _upDirectionBase = UpDirectionBaseEnum.GlobalRotation;
+    private UpDirectionBaseEnum _upDirectionBase = UpDirectionBaseEnum.ReversedGravityDirection;
 
+    private bool _updateUpDirectionFromInner = false;
     private Vector2 _prevVelocity = Vector2.Zero;
     private bool _prevWasOnFloor = false;
     private Vector2 _prevNormal = Vector2.Zero;
@@ -34,13 +34,11 @@ public partial class RigidCharacter2D : CharacterBody2D
             PhysicsServer2D.BodySetParam(GetRid(), PhysicsServer2D.BodyParameter.Mass, _mass);
         }
     }
-    [Export]
-    public MotionBaseEnum MotionBase { get; set; } = MotionBaseEnum.UpDirection;
     [Export(PropertyHint.None, "suffix:px/s")]
     public Vector2 Motion
     {
-        get => MotionBase == MotionBaseEnum.UpDirection && MotionMode == MotionModeEnum.Grounded ? Velocity.Rotated(-UpDirectionRotation) : Velocity.Rotated(-GlobalRotation);
-        set => Velocity = MotionBase == MotionBaseEnum.UpDirection && MotionMode == MotionModeEnum.Grounded ? value.Rotated(UpDirectionRotation) : value.Rotated(GlobalRotation);
+        get => MotionMode == MotionModeEnum.Grounded ? Velocity.Rotated(-UpDirectionRotation) : Velocity.Rotated(-GlobalRotation);
+        set => Velocity = MotionMode == MotionModeEnum.Grounded ? value.Rotated(UpDirectionRotation) : value.Rotated(GlobalRotation);
     }
     [Export]
     public UpDirectionBaseEnum UpDirectionBase
@@ -111,6 +109,7 @@ public partial class RigidCharacter2D : CharacterBody2D
                 Velocity += fallingVel.Normalized() * MaxFallingSpeed - fallingVel;
         }
 
+        _updateUpDirectionFromInner = true;
         SyncGlobalRotation();
 
         Velocity *= speedScale;
@@ -184,6 +183,14 @@ public partial class RigidCharacter2D : CharacterBody2D
             GlobalRotation = gdr;
         else if (!isRotationEqualApprox)
             GlobalRotation = Mathf.Lerp(GlobalRotation, gdr, (float)RotationSyncSpeed * (float)BodyDelta);
+
+        if (_updateUpDirectionFromInner)
+        {
+            _updateUpDirectionFromInner = false;
+            return;
+        }
+
+        UpdateUpDirection();
     }
     public void Turn()
     {
@@ -201,23 +208,8 @@ public partial class RigidCharacter2D : CharacterBody2D
     }
     public void UpdateUpDirection()
     {
-        if (MotionMode == MotionModeEnum.Floating)
-        {
-            PrintErr("The property 'UpDirectionBase' can only be set when the motion mode is 'Grounded'.");
-            return;
-        }
-
-        switch (_upDirectionBase)
-        {
-            case UpDirectionBaseEnum.GlobalRotation:
-                UpDirection = Vector2.Up.Rotated(GlobalRotation);
-                break;
-            case UpDirectionBaseEnum.ReversedGravityDirection:
-                UpDirection = -GetGravity().Normalized();
-                break;
-            default:
-                break;
-        }
+        if (MotionMode == MotionModeEnum.Floating) return;
+        if (UpDirectionBase == UpDirectionBaseEnum.ReversedGravityDirection && IsInsideTree()) UpDirection = -GetGravity().Normalized();
     }
 
 

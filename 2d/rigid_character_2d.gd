@@ -7,7 +7,7 @@ extends CharacterBody2D
 ## [RigidCharacter2D] enhances the usability of [CharacterBody2D]: You can handle the [member gravity_scale] of the body to control the strength of the gravity, meaning you don't need to write your own gravity code.
 ## [br][br]
 ## 
-## Introducing gravity direction meaning that you need to handle the transform of the [member CharacterBody2D.velocity], which is annoying when you just want to think things more easily. Therefore, [member motion] is introduced to solve this problem. It is the [member CharacterBody2D.velocity] transformed by a certain rule of based on the [member motion_base] you give. So you can think velocity as if the body is in the regular cooridnate system that does not rotate, and the [member motion] will help you tranform it to the desired coordinate system.
+## Introducing gravity direction meaning that you need to handle the transform of the [member CharacterBody2D.velocity], which is annoying when you just want to think things more easily. Therefore, [member motion] is introduced to solve this problem. It is the [member CharacterBody2D.velocity] transformed by the rotation of [member CharacterBody2D.up_direction], and the [member motion] will help you tranform it to the desired coordinate system.
 ## [br][br]
 ## 
 ## For developers preferring to use momentum, the [member mass] and [member momentum] are your first choice. 
@@ -18,11 +18,6 @@ extends CharacterBody2D
 ## The method also provides a param that allows you to scale the movement speed, which is useful when the character is in a space where the time goes faster or slower.
 ## 
 
-enum MotionBase {
-	UP_DIRECTION, ## The [member motion] refers to the velocity orthogonal to the [member CharacterBody2D.up_direction] of the body.
-	GLOBAL_ROTATION ## The [member motion] refers to the velocity rotated by the global rotation of the body.
-}
-
 enum MotionComponent {
 	X, ## Refers to the X component of the [member motion].
 	Y, ## Refers to the Y component of the [member motion].
@@ -30,7 +25,6 @@ enum MotionComponent {
 
 enum UpDirectionBase {
 	DEFAULT, ## The [member CharacterBody2D.up_direction] does not change.
-	GLOBAL_ROTATION, ## The [member CharacterBody2D.up_direction] is rotated by the global rotation of the body.
 	REVERSED_GRAVITY_DIRECTION ## The [member CharacterBody2D.up_direction] is the opposite direction of the gravity.
 }
 
@@ -46,12 +40,6 @@ var mass: float = 1.0:
 		PhysicsServer2D.body_set_param(get_rid(), PhysicsServer2D.BODY_PARAM_MASS, value)
 	get:
 		return float(PhysicsServer2D.body_get_param(get_rid(), PhysicsServer2D.BODY_PARAM_MASS))
-## The transform base of the [member motion]. See [enum MotionBase] for more information.
-@export var motion_base: MotionBase = MotionBase.UP_DIRECTION:
-	set(value):
-		if value != motion_base:
-			motion_base = value
-			motion = motion # Updates the motion by triggering the setter
 ## Current velocity vector transformed by the [member motion_base]. Sometimes this can be regarded as "local velocity".
 ## [br][br]
 ## 
@@ -59,19 +47,13 @@ var mass: float = 1.0:
 @export_custom(PROPERTY_HINT_NONE, "suffix:px/s") 
 var motion: Vector2:
 	set(value):
-		if motion_base == MotionBase.UP_DIRECTION and motion_mode == MotionMode.MOTION_MODE_GROUNDED:
-			velocity = value.rotated(up_direction_rotation)
-		else:
-			velocity = value.rotated(global_rotation)
+		velocity = value.rotated(up_direction_rotation if motion_mode == MOTION_MODE_GROUNDED else global_rotation)
 	get:
-		if motion_base == MotionBase.UP_DIRECTION and motion_mode == MotionMode.MOTION_MODE_GROUNDED:
-			return velocity.rotated(-up_direction_rotation)
-		else:
-			return velocity.rotated(-global_rotation)
+		return velocity.rotated(-up_direction_rotation if motion_mode == MOTION_MODE_GROUNDED else -global_rotation)
 ## The transfrom base of the [member CharacterBody2D.up_direction]. See [enum UpDirectionBase] for more information.
 ## [br][br]
 ## [b]Note:[/b] The up direction is configurable only when the motion mode is [code]MOTION_MODE_GROUNDED[/code].
-@export var up_direction_base: UpDirectionBase = UpDirectionBase.GLOBAL_ROTATION:
+@export var up_direction_base: UpDirectionBase = UpDirectionBase.REVERSED_GRAVITY_DIRECTION:
 	set(value):
 		up_direction_base = value
 		update_up_direction()
@@ -97,7 +79,7 @@ var gravity_scale: float = 1.0:
 var max_falling_speed: float = 1500.0
 
 @export_group("Rotation Sync", "rotation_sync_")
-## If [code]true[/code], the body will be rotated to match the gravity direction.
+## If [code]true[/code], the body will be rotated to match the up direction.
 @export var rotation_sync_enabled: bool = true
 ## The rate at which the body rotates to match the gravity direction.
 @export_range(0.0, 360.0, 0.1, "or_greater", "radians_as_degrees", "suffix:°/s")
@@ -137,6 +119,7 @@ var _body_delta: float:
 		printerr("The property '_body_delta' is read-only.")
 	get:
 		return get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
+var _update_up_direction_from_inner: bool = false
 
 var _prev_vel: Vector2 = Vector2.ZERO
 var _prev_normal: Vector2 = Vector2.ZERO
@@ -144,6 +127,8 @@ var _prev_on_floor: bool = false
 
 
 ## A virtual method that you can override to customize your own movement behavior.
+##
+## [b]Note:[/b] You should call [method move] instead to ensure some extra encapsulation can be done as expected.
 func _move(speed_scale: float) -> bool:
 	_prev_vel = velocity
 	_prev_on_floor = is_on_floor()
@@ -279,19 +264,21 @@ func sync_global_rotation() -> void:
 	if get_gravity().is_zero_approx():
 		return
 	
-	var gdr := Vector2(PhysicsServer2D.area_get_param(get_viewport().find_world_2d().space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR)).angle_to(get_gravity())
-	
-	if global_rotation != gdr:
+	if global_rotation != up_direction_rotation:
 		if is_on_floor() or _prev_on_floor:
-			global_rotation = gdr
+			global_rotation = up_direction_rotation
 		else:
-			var is_rotation_equal_approx := is_equal_approx(global_rotation, gdr)
+			var is_rotation_equal_approx := is_equal_approx(global_rotation, up_direction_rotation)
 			if is_rotation_equal_approx:
-				global_rotation = gdr
+				global_rotation = up_direction_rotation
 			else:
-				global_rotation = lerp_angle(global_rotation, gdr, rotation_sync_angle_speed * _body_delta)
+				global_rotation = lerp_angle(global_rotation, up_direction_rotation, rotation_sync_angle_speed * _body_delta)
 		
-		update_up_direction()
+	if _update_up_direction_from_inner:
+		_update_up_direction_from_inner = false
+		return
+	
+	update_up_direction()
 
 ## Turns the body back.
 ## [br][br]
@@ -315,11 +302,8 @@ func turn() -> void:
 ## Used internally by the setter of [member up_direction_base].
 func update_up_direction() -> void:
 	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
-		printerr("The property 'up_direction_base' can only be set when the motion mode is 'MOTION_MODE_GROUNDED'.")
 		return
 
-	match up_direction_base:
-		UpDirectionBase.GLOBAL_ROTATION:
-			up_direction = Vector2.UP.rotated(global_rotation)
-		UpDirectionBase.REVERSED_GRAVITY_DIRECTION:
-			up_direction = -get_gravity().normalized()
+	if up_direction_base == UpDirectionBase.REVERSED_GRAVITY_DIRECTION and is_inside_tree():
+		var gdir := get_gravity().normalized()
+		up_direction = up_direction if gdir.is_zero_approx() else -gdir
