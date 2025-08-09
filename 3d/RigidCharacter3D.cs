@@ -4,8 +4,8 @@ using static Godot.GD;
 
 namespace GodotRigidCharacter;
 
-[Icon("uid://dyd0heol7wple")]
-public partial class RigidCharacter2D : CharacterBody2D
+[Icon("uid://bur51fsaaek32")]
+public partial class RigidCharacter3D : CharacterBody3D
 {
     public enum MotionComponentEnum { X, Y };
     public enum UpDirectionBaseEnum { Default, ReversedGravityDirection };
@@ -15,9 +15,9 @@ public partial class RigidCharacter2D : CharacterBody2D
     private UpDirectionBaseEnum _upDirectionBase = UpDirectionBaseEnum.ReversedGravityDirection;
 
     private bool _updateUpDirectionFromInner = false;
-    private Vector2 _prevVelocity = Vector2.Zero;
+    private Vector3 _prevVelocity = Vector3.Zero;
     private bool _prevOnFloor = false;
-    private Vector2 _prevNormal = Vector2.Zero;
+    private Vector3 _prevNormal = Vector3.Zero;
 
     protected double BodyDelta
     {
@@ -31,14 +31,14 @@ public partial class RigidCharacter2D : CharacterBody2D
         set
         {
             _mass = value;
-            PhysicsServer2D.BodySetParam(GetRid(), PhysicsServer2D.BodyParameter.Mass, _mass);
+            PhysicsServer3D.BodySetParam(GetRid(), PhysicsServer3D.BodyParameter.Mass, _mass);
         }
     }
     [Export(PropertyHint.None, "suffix:px/s")]
-    public Vector2 Motion
+    public Vector3 Motion
     {
-        get => MotionMode == MotionModeEnum.Grounded ? Velocity.Rotated(-UpDirectionRotation) : Velocity.Rotated(-GlobalRotation);
-        set => Velocity = MotionMode == MotionModeEnum.Grounded ? value.Rotated(UpDirectionRotation) : value.Rotated(GlobalRotation);
+        get => (MotionMode == MotionModeEnum.Grounded ? UpDirectionRotation : GlobalBasis.GetRotationQuaternion().Inverse()).Inverse() * Velocity;
+        set => Velocity = (MotionMode == MotionModeEnum.Grounded ? UpDirectionRotation : GlobalBasis.GetRotationQuaternion()) * value;
     }
     [Export]
     public UpDirectionBaseEnum UpDirectionBase
@@ -59,7 +59,7 @@ public partial class RigidCharacter2D : CharacterBody2D
         set
         {
             _gravityScale = value;
-            PhysicsServer2D.BodySetParam(GetRid(), PhysicsServer2D.BodyParameter.GravityScale, _gravityScale);
+            PhysicsServer3D.BodySetParam(GetRid(), PhysicsServer3D.BodyParameter.GravityScale, _gravityScale);
         }
     }
     [Export(PropertyHint.Range, "0.0, 9999.9, 0.1, or_greater, hide_slider, suffix:px/s")]
@@ -71,14 +71,25 @@ public partial class RigidCharacter2D : CharacterBody2D
     [Export(PropertyHint.Range, "0.0, 360.0, 0.1, or_greater, radians_as_degrees, suffix:°/s")]
     public double RotationSyncSpeed { get; set; } = Math.Tau;
 
-    public Vector2 Momentum
+    public Vector3 Momentum
     {
         get => Velocity * Mass;
         set => Velocity = value / Mass;
     }
 
-    public float UpDirectionRotation => MotionMode == MotionModeEnum.Floating ? GlobalRotation : Vector2.Up.AngleTo(UpDirection);
-    public Vector2 PreviousVelocity => _prevVelocity;
+    public Quaternion UpDirectionRotation
+    {
+        get
+        {
+            // Code arranged from https://ghostyii.com/ringworld/ by Ghostyii.
+            // Inspired and shared by https://forum.godotengine.org/t/3d-moving-around-sphere/63674/4 by militaryg.
+            var currentBasis = Engine.IsEditorHint() ? Basis : GlobalBasis;
+            return MotionMode == MotionModeEnum.Grounded
+               ? currentBasis.GetRotationQuaternion()
+               : (new Quaternion(currentBasis.Y.Normalized(), UpDirection) * currentBasis.GetRotationQuaternion()).Normalized();
+        }
+    }
+    public Vector3 PreviousVelocity => _prevVelocity;
 
     protected virtual bool _Move(float speedScale)
     {
@@ -113,10 +124,10 @@ public partial class RigidCharacter2D : CharacterBody2D
         return ret;
     }
 
-    public void Accelerate(Vector2 acceleration) => Velocity += acceleration * (float)BodyDelta;
-    public void Accelerate(Vector2 acceleration, Vector2 targetVelocity) => Velocity = Velocity.MoveToward(targetVelocity, acceleration.Length() * (float)BodyDelta);
-    public void AccelerateMotion(Vector2 acceleration) => Motion += acceleration * (float)BodyDelta;
-    public void AccelerateMotion(Vector2 acceleration, Vector2 targetMotion) => Motion = Motion.MoveToward(targetMotion, acceleration.Length() * (float)BodyDelta);
+    public void Accelerate(Vector3 acceleration) => Velocity += acceleration * (float)BodyDelta;
+    public void Accelerate(Vector3 acceleration, Vector3 targetVelocity) => Velocity = Velocity.MoveToward(targetVelocity, acceleration.Length() * (float)BodyDelta);
+    public void AccelerateMotion(Vector3 acceleration) => Motion += acceleration * (float)BodyDelta;
+    public void AccelerateMotion(Vector3 acceleration, Vector3 targetMotion) => Motion = Motion.MoveToward(targetMotion, acceleration.Length() * (float)BodyDelta);
     public void AccelerateMotionComponent(MotionComponentEnum component, double acceleration)
     {
         var newMotion = Motion;
@@ -129,9 +140,9 @@ public partial class RigidCharacter2D : CharacterBody2D
         newMotion[(ushort)component] = Mathf.MoveToward(newMotion[(ushort)component], (float)targetMotionComponent, (float)(acceleration * BodyDelta));
         Motion = newMotion;
     }
-    public void ApplyForce(Vector2 force) => Momentum += force * (float)BodyDelta;
-    public void ApplyImpulse(Vector2 impulse) => Momentum += impulse;
-    public void ApplyVelocity(Vector2 vector) => Velocity += vector;
+    public void ApplyForce(Vector3 force) => Momentum += force * (float)BodyDelta;
+    public void ApplyImpulse(Vector3 impulse) => Momentum += impulse;
+    public void ApplyVelocity(Vector3 vector) => Velocity += vector;
     public void Bounce()
     {
         if (_prevNormal.IsZeroApprox() || !_prevNormal.IsFinite()) return;
@@ -142,11 +153,11 @@ public partial class RigidCharacter2D : CharacterBody2D
     {
         if (!IsOnFloor()) return 0.0f;
 
-        var kc = new KinematicCollision2D();
+        var kc = new KinematicCollision3D();
         TestMove(GlobalTransform, GetGravity().Normalized() * FloorSnapLength, kc);
 
         if (kc is not null && kc.GetCollider() is not null)
-            return (float)PhysicsServer2D.BodyGetParam(kc.GetColliderRid(), PhysicsServer2D.BodyParameter.Friction);
+            return (float)PhysicsServer3D.BodyGetParam(kc.GetColliderRid(), PhysicsServer3D.BodyParameter.Friction);
         
         return 0.0f;
     }
@@ -170,11 +181,10 @@ public partial class RigidCharacter2D : CharacterBody2D
     {
         if (!RotationSyncEnabled) return;
 
-        if (GlobalRotation != UpDirectionRotation)
-        {
-            if (IsOnFloor() || _prevOnFloor || Mathf.IsEqualApprox(GlobalRotation, UpDirectionRotation)) GlobalRotation = UpDirectionRotation;
-            else GlobalRotation = Mathf.LerpAngle(GlobalRotation, UpDirectionRotation, (float)(RotationSyncSpeed * BodyDelta));
-        }
+        var grq = GlobalBasis.GetRotationQuaternion();
+
+        if (IsOnFloor() || _prevOnFloor || grq.IsEqualApprox(UpDirectionRotation)) GlobalRotation = UpDirectionRotation.GetEuler(RotationOrder);
+        else GlobalRotation = grq.Slerp(UpDirectionRotation, (float)(RotationSyncSpeed * BodyDelta)).GetEuler(RotationOrder);
 
         if (_updateUpDirectionFromInner)
         {
@@ -205,7 +215,7 @@ public partial class RigidCharacter2D : CharacterBody2D
     }
 
 
-    public RigidCharacter2D()
+    public RigidCharacter3D()
     {
         Mass = _mass;
         GravityScale = _gravityScale;

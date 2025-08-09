@@ -94,10 +94,8 @@ var rotation_sync_angle_speed: float = TAU
 
 ## The product of [member CharacterBody3D.velocity] and [member mass]. This is used to describe the inertia of the body.
 var momentum: Vector3:
-	set(value):
-		velocity = value / mass
-	get:
-		return velocity * mass
+	set(value): velocity = value / mass
+	get: return velocity * mass
 
 ## The rotation of [member CharacterBody3D.up_direction]. This is mainly used to transform the [member motion].
 ## [br][br]
@@ -106,31 +104,29 @@ var momentum: Vector3:
 ## [br][br]
 ## 
 ## [b]Note:[/b] The up direction only works when the motion mode is [code]MOTION_MODE_GROUNDED[/code].
+## Otherwise, the value will be the same as the [member Node2D.global_rotation].
 var up_direction_rotation: Quaternion:
-	set(_value):
-		printerr("The property 'up_direction_rotation' is read-only.")
+	set(_value): printerr("The property 'up_direction_rotation' is read-only.")
 	get:
 		# To avoid the error "!is_inside_tree() is true" thrown in tool mode, which is led by the global basis not initialized in 3D gaming environment,
 		# we need to use basis instead of global_basis here during the initialization in the editor.
 		var current_basis := basis if Engine.is_editor_hint() else global_basis
 		# Code arranged from https://ghostyii.com/ringworld/ by Ghostyii.
 		# Inspired and shared by https://forum.godotengine.org/t/3d-moving-around-sphere/63674/4 by militaryg.
-		return (Quaternion(current_basis.y.normalized(), up_direction) * current_basis.get_rotation_quaternion()).normalized()
+		return global_basis.get_rotation_quaternion() \
+			if motion_mode == MotionMode.MOTION_MODE_FLOATING else \
+			(Quaternion(current_basis.y.normalized(), up_direction) * current_basis.get_rotation_quaternion()).normalized()
 ## The velocity vector of the body at the last call of [method move]
 ## [br][br]
 ##
 ## [b]Note:[/b] This is read-only property, and try to assign any value to it will result in an error.
 var previous_velocity: Vector3:
-	set(_value):
-		printerr("The property 'previous_velocity' is read-only.")
-	get:
-		return _prev_vel
+	set(_value): printerr("The property 'previous_velocity' is read-only.")
+	get: return _prev_vel
 
 var _body_delta: float:
-	set(_value):
-		printerr("The property '_body_delta' is read-only.")
-	get:
-		return get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
+	set(_value): printerr("The property '_body_delta' is read-only.")
+	get: return get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
 var _update_up_direction_from_inner: bool = false
 
 var _prev_vel: Vector3 = Vector3.ZERO
@@ -177,30 +173,23 @@ func _move(speed_scale: float) -> bool:
 ## [br][br]
 ## [b]Note:[/b] When [param target_velocity] is given, the acceleration will be the length of the given acceleration vector.
 func accelerate(acceleration: Vector3, target_velocity: Vector3 = Vector3.INF) -> void:
-	if target_velocity.is_finite():
-		velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
-	else:
-		velocity += acceleration * _body_delta
+	if target_velocity.is_finite(): velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
+	else: velocity += acceleration * _body_delta
 
 ## Accelerates the body by adding [member motion] by the given acceleration vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 ## [br][br]
 ## [b]Note:[/b] When [param target_motion] is given, the acceleration will be the length of the given acceleration vector.
 func accelerate_motion(acceleration: Vector3, target_motion: Vector3 = Vector3.INF) -> void:
-	if target_motion.is_finite():
-		motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
-	else:
-		motion += target_motion * _body_delta
+	if target_motion.is_finite(): motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
+	else: motion += target_motion * _body_delta
 
 ## Accelerates the [member motion] by adding one of the components by the given acceleration scalar in the motion vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 func accelerate_motion_component(component: MotionComponent, acceleration: float, target: float = INF) -> void:
 	var a := acceleration * _body_delta
-	
-	if is_finite(target):
-		motion[component] = move_toward(motion[component], target, a)
-	else:
-		motion[component] += a
+	if is_finite(target): motion[component] = move_toward(motion[component], target, a)
+	else: motion[component] += a
 
 ## Applies the given force to the body.
 ## The force applied in this method is a central force, and it is [b]time-dependent[/b], meaning that you can call this method in each frame.
@@ -233,8 +222,7 @@ func bounce() -> void:
 ## Returns the friction of the floor.
 ## If the character is not on the floor, it returns [code]0.0[/code].
 func get_floor_friction() -> float:
-	if not is_on_floor():
-		return 0.0
+	if not is_on_floor(): return 0.0
 	
 	var kc := KinematicCollision3D.new()
 	test_move(global_transform, -get_floor_normal() * floor_snap_length, kc)
@@ -260,35 +248,25 @@ func jump(impulse: float, affect_momentum: bool = false) -> void:
 	var imp := momentum.project(up_direction) if affect_momentum else velocity.project(up_direction)
 	var result := imp.normalized() * impulse - imp
 
-	if affect_momentum:
-		momentum += result
-	else:
-		velocity += result
+	if affect_momentum: momentum += result
+	else: velocity += result
 
 ## Moves the body and handles the gravity and other physics related stuff.
 ## You can override [method _move] to customize your own movement behavior.
 func move(speed_scale: float = 1.0) -> bool:
 	return _move(speed_scale)
 
-## Synchronizes the global rotation of the body and matches it with the gravity direction.
+## Synchronizes the global rotation of the body and matches it with the [member CharacterBody3D.up_direction].
 func sync_global_rotation() -> void:
-	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
-		return
-	if not rotation_sync_enabled:
-		return
-	
-	var gdir := get_gravity().normalized()
-	if gdir.is_zero_approx():
-		return
+	if motion_mode == MotionMode.MOTION_MODE_FLOATING: return
+	if not rotation_sync_enabled: return
 	
 	var grq := global_basis.get_rotation_quaternion()
 	
-	#if grq != up_direction_rotation:
 	if is_on_floor() or _prev_on_floor:
 		global_rotation = up_direction_rotation.get_euler(rotation_order)
 	else:
-		var is_rotation_equal_approx := grq.is_equal_approx(up_direction_rotation)
-		if is_rotation_equal_approx:
+		if grq.is_equal_approx(up_direction_rotation):
 			global_rotation = up_direction_rotation.get_euler(rotation_order)
 		else:
 			global_rotation = grq.slerp(up_direction_rotation, rotation_sync_angle_speed * _body_delta).get_euler(rotation_order)
@@ -326,4 +304,3 @@ func update_up_direction() -> void:
 	if up_direction_base == UpDirectionBase.REVERSED_GRAVITY_DIRECTION and is_inside_tree():
 		var gdir := get_gravity().normalized()
 		up_direction = up_direction if gdir.is_zero_approx() else -gdir
-		print(up_direction)
