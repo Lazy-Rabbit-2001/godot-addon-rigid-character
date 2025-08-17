@@ -87,8 +87,10 @@ var rotation_sync_angle_speed: float = TAU
 
 ## The product of [member CharacterBody2D.velocity] and [member mass]. This is used to describe the inertia of the body.
 var momentum: Vector2:
-	set(value): velocity = value / mass
-	get: return velocity * mass
+	set(value):
+		velocity = value / mass
+	get:
+		return velocity * mass
 
 ## The rotation of [member CharacterBody2D.up_direction]. This is mainly used to transform the [member motion].
 ## [br][br]
@@ -99,19 +101,25 @@ var momentum: Vector2:
 ## [b]Note:[/b] The up direction only works when the motion mode is [code]MOTION_MODE_GROUNDED[/code].
 ## Otherwise, the value will be the same as the [member Node2D.global_rotation].
 var up_direction_rotation: float:
-	set(_value): printerr("The property 'up_direction_rotation' is read-only.")
-	get: return global_rotation if motion_mode == MOTION_MODE_GROUNDED else Vector2.UP.angle_to(up_direction)
+	set(_value):
+		printerr("The property 'up_direction_rotation' is read-only.")
+	get:
+		return global_rotation if motion_mode == MOTION_MODE_GROUNDED else Vector2.UP.angle_to(up_direction)
 ## The velocity vector of the body at the last call of [method move]
 ## [br][br]
 ##
 ## [b]Note:[/b] This is read-only property, and try to assign any value to it will result in an error.
 var previous_velocity: Vector2:
-	set(_value): printerr("The property 'previous_velocity' is read-only.")
-	get: return _prev_vel
+	set(_value):
+		printerr("The property 'previous_velocity' is read-only.")
+	get:
+		return _prev_vel
 
 var _body_delta: float:
-	set(_value): printerr("The property '_body_delta' is read-only.")
-	get: return get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
+	set(_value):
+		printerr("The property '_body_delta' is read-only.")
+	get:
+		return get_physics_process_delta_time() if Engine.is_in_physics_frame() else get_process_delta_time()
 var _update_up_direction_from_inner: bool = false
 
 var _prev_vel: Vector2 = Vector2.ZERO
@@ -128,7 +136,8 @@ func _move(speed_scale: float) -> bool:
 	_prev_on_floor = is_on_floor()
 
 	var lsc := get_last_slide_collision()
-	if lsc: _prev_normal = lsc.get_normal()
+	if lsc:
+		_prev_normal = lsc.get_normal()
 
 	update_up_direction()
 
@@ -158,23 +167,29 @@ func _move(speed_scale: float) -> bool:
 ## [br][br]
 ## [b]Note:[/b] When [param target_velocity] is given, the acceleration will be the length of the given acceleration vector.
 func accelerate(acceleration: Vector2, target_velocity: Vector2 = Vector2.INF) -> void:
-	if target_velocity.is_finite(): velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
-	else: velocity += acceleration * _body_delta
+	if target_velocity.is_finite():
+		velocity = velocity.move_toward(target_velocity, acceleration.length() * _body_delta)
+	else:
+		velocity += acceleration * _body_delta
 
 ## Accelerates the body by adding [member motion] by the given acceleration vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 ## [br][br]
 ## [b]Note:[/b] When [param target_motion] is given, the acceleration will be the length of the given acceleration vector.
 func accelerate_motion(acceleration: Vector2, target_motion: Vector2 = Vector2.INF) -> void:
-	if target_motion.is_finite(): motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
-	else: motion += target_motion * _body_delta
+	if target_motion.is_finite():
+		motion = motion.move_toward(target_motion, acceleration.length() * _body_delta)
+	else:
+		motion += target_motion * _body_delta
 
 ## Accelerates the [member motion] by adding one of the components by the given acceleration scalar in the motion vector.
 ## If the [param target_motion] is given, the body will move towards the target motion.
 func accelerate_motion_component(component: MotionComponent, acceleration: float, target: float = INF) -> void:
 	var a := acceleration * _body_delta
-	if is_finite(target): motion[component] = move_toward(motion[component], target, a)
-	else: motion[component] += a
+	if is_finite(target):
+		motion[component] = move_toward(motion[component], target, a)
+	else:
+		motion[component] += a
 
 ## Applies the given force to the body.
 ## The force applied in this method is a central force, and it is [b]time-dependent[/b], meaning that you can call this method in each frame.
@@ -201,7 +216,8 @@ func apply_velocity(vector: Vector2) -> void:
 
 ## Makes the body bounce back.
 func bounce() -> void:
-	if _prev_normal.is_zero_approx() or not _prev_normal.is_finite(): return
+	if _prev_normal.is_zero_approx() or not _prev_normal.is_finite():
+		return
 	velocity = (velocity if _prev_vel.is_zero_approx() else _prev_vel).bounce(_prev_normal)
 ## Returns the friction of the floor.
 ## If the character is not on the floor, it returns [code]0.0[/code].
@@ -211,7 +227,8 @@ func get_floor_friction() -> float:
 	var kc := KinematicCollision2D.new()
 	test_move(global_transform, -get_floor_normal() * floor_snap_length, kc)
 
-	if kc and kc.get_collider(): return PhysicsServer2D.body_get_param(kc.get_collider_rid(), PhysicsServer2D.BODY_PARAM_FRICTION)
+	if kc and kc.get_collider():
+		return PhysicsServer2D.body_get_param(kc.get_collider_rid(), PhysicsServer2D.BODY_PARAM_FRICTION)
 
 	return 0.0
 
@@ -231,8 +248,10 @@ func jump(impulse: float, affect_momentum: bool = false) -> void:
 	var imp := momentum.project(up_direction) if affect_momentum else velocity.project(up_direction)
 	var result := imp.normalized() * impulse - imp
 
-	if affect_momentum: momentum += result
-	else: velocity += result
+	if affect_momentum:
+		momentum += result
+	else:
+		velocity += result
 
 ## Moves the body and handles the gravity and other physics related stuff.
 ## You can override [method _move] to customize your own movement behavior.
@@ -241,8 +260,10 @@ func move(speed_scale: float = 1.0) -> bool:
 
 ## Synchronizes the global rotation of the body and matches it with the [member CharacterBody2D.up_direction].
 func sync_global_rotation() -> void:
-	if motion_mode == MotionMode.MOTION_MODE_FLOATING: return
-	if not rotation_sync_enabled: return
+	if motion_mode == MotionMode.MOTION_MODE_FLOATING:
+		return
+	if not rotation_sync_enabled:
+		return
 	
 	if global_rotation != up_direction_rotation:
 		if is_on_floor() or _prev_on_floor or is_equal_approx(global_rotation, up_direction_rotation):
