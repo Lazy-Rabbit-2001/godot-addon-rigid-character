@@ -108,7 +108,7 @@ var up_direction_rotation: float:
 ## The velocity vector of the body at the last call of [method move]
 ## [br][br]
 ##
-## [b]Note:[/b] This is read-only property, and try to assign any value to it will result in an error.
+## [b]Note:[/b] This is a read-only property, and try to assign any value to it will result in an error.
 var previous_velocity: Vector2:
 	set(_value):
 		printerr("The property 'previous_velocity' is read-only.")
