@@ -2,7 +2,9 @@
 
 <div align=center><img src="logo.svg" "" height="75%" width="75%"></div>
 
-**A Godot addon that provides advanced `CharacterBody2D/3D` with more `RigidBody2D/3D` features ported.**
+**A Godot addon that provides advanced `CharacterBody2D/3D`, `RigidCharacter2D/3D`, with more `RigidBody2D/3D` features ported.**
+
+[Upgraded from Kinebody addon](https://github.com/Lazy-Rabbit-2001/godot-addon-kinebody)
 
 ## Godot Versions Supported
 
@@ -15,7 +17,7 @@
 
 ### Notes
 
-> * The `RigidBody2D/3D` created from the Create Dialog is based on **GDScript**. To convert the rigid body node to C# version, please extend the C# class `RigidBody2D/3D` in your C# script and attach it to the rigid body node you created.
+> * The `RigidCharacter2D/3D` created from the Create Dialog is based on **GDScript**. To convert the rigid body node to C# version, please extend the C# class `RigidCharacter2D/3D` in your C# script and attach it to the rigid body node you created.
 
 ## About `RigidCharacter2D`/`RigidCharacter3D`
 
